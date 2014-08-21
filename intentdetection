@@ -1,0 +1,261 @@
+#coding:utf-8
+'''
+Created on 2014年7月21日
+
+@author: ZS
+'''
+import numpy as np
+import scipy.sparse as sp
+from scipy import io
+from itertools import islice
+from collections import Counter
+import cPickle as pickle
+import scipy
+import random
+class querylogs():
+    def __init__(self,):
+#         self.wordD={}
+        self.words=Counter()
+#         self.ngrams=[Counter() for i in xrange(4)]
+#         self.ngramsd=[]
+        self.queries=Counter()
+        self.queriesd={}
+        self.clicks=Counter()
+        self.clickgraph=[]
+        self.sessions=[]
+        self.labels=Counter()
+        self.sessionNum=0
+
+    def gen_clickgraph(self,):
+        M=len(self.queries)
+        N=len(self.clicks) 
+        #normalize?  sparse
+    def gen_queryfeature(self,iquery,clicktitle=''):
+        #words  0-1 feauture
+        words=iquery.split()
+        ngrams_f=[]
+        offset=0
+        for j in xrange(0,3):
+            ngrams=[ words[i:i+j] for i in xrange(len(words)-j)]
+            ngrams_f.extend([self.ngramsd[j][i]+offset for i in words])
+            offset=offset+len(self.ngrams[j])
+        
+        col=np.array([ngrams_f ]) 
+        data=np.ones(len(col))     
+        #click distribution   
+        queryid=self.queriesd.get(iquery,-1)
+        click_distri=self.clickgraph[queryid,:]
+        
+        col= np.hstack((col,click_distri.indices))
+        data=np.hstack((data,click_distri.data))
+        row=np.zeros(len(col))
+        return sp.coo_matrix(data, (row,col))
+        # sp.vstack([a,b,c..])
+    def gen_clickfeature(self,iclick):
+        #anchor words
+        
+        return 
+    def collect_traindata(self,d,N):
+        self.wordsd=dict((i,idx) for idx,i in enumerate(self.words))
+        self.clicksd=dict((i,idx) for idx,i in enumerate(self.clicks))
+        self.queriesd=dict((i,idx) for idx,i in enumerate(self.queries))
+        self.labelsd=dict((ilabel,idx) for idx,ilabel in enumerate(self.labels))
+        
+        QN=len(self.queries)
+        CN=len(self.clicks)
+        self.clickgraph=sp.lil_matrix((QN,CN))
+        N=52810489#sum(self.queries.values()) # num of data point
+        M=len(self.clicks)+len(self.words)#+len(self.ngrams[0])+len(self.ngrams[1])+len(self.ngrams[2])
+        self.trainv=sp.lil_matrix((N,M))
+        self.target=sp.lil_matrix((N,len(self.labels)))
+        self.sessionids=np.zeros(N)
+        self.count=0
+        with open(d,'rb') as f:
+            while True:
+                next_n_lines = list(islice(f, N))
+                if not next_n_lines:
+                    break
+                self.unideal2(next_n_lines)
+                print self.trainv.nnz,self.target.nnz,self.clickgraph.nnz
+                #print 'a',self.sessionNum
+        
+        # label the ones within one session the same label
+#     def train(self,):
+#         #divide train and sample test
+#     def train_classify(self,):
+#         #gen test, train set 
+    
+    def sample(self,d,N):
+        f1=open('sample.txt','wb')
+        with open(d,'rb') as f:
+            while True:
+                next_n_lines = list(islice(f, N))
+                if not next_n_lines:
+                    break
+                isession=[]
+                for iline in next_n_lines:
+                    if len(iline)<2:
+                        #new session
+                        p=random.randint(1,80)
+                        if p==66:
+                            #lucky number! retain this session!
+                            f1.write(''.join(isession))
+                            f1.write('\n')
+                        isession=[]                        
+                    else:
+                        isession.append(iline)    
+        f1.close()
+    def gen_dict(self,d,N):
+        with open(d,'rb') as f:
+            while True:
+                next_n_lines = list(islice(f, N))
+                if not next_n_lines:
+                    break
+                self.unideal(next_n_lines)
+                #print 'N'
+        print self.labels
+        print sum(self.clicks.values()),sum(self.clicks.values())/len(self.clicks)
+        print len(self.words),len(self.clicks),len(self.queries)
+        print sum(self.queries.values()),sum(self.queries.values())/len(self.queries)
+        
+        self.labelsd=dict((ilabel,idx) for idx,ilabel in enumerate(self.labels))
+        self.words=set(self.words.keys())
+        self.clicks=set(self.clicks.keys())
+        self.queries=set(self.queries.keys())
+#         for j in xrange(0,3):
+#             #self.ngrams[j].update([ tuple(words[i:i+j]) for i in xrange(len(words)-j)])
+#             self.ngrams[j]= self.ngrams[j].most_common(len(self.ngrams)/3)
+#             self.ngrams[j]=set([i[0] for i in self.ngrams[j]])
+#         QN=len(self.queries)
+#         CN=len(self.clicks)
+#         self.clickgraph=sp.lil_matrix((QN,CN))
+#         N=sum(self.queries.values()) # num of data point
+#         M=len(self.clicks)+len(self.words)+len(self.ngrams[0])+len(self.ngrams[1])+len(self.ngrams[2])
+#         self.trainv=sp.csr_matrix((N,M))
+#         self.target=sp.lil_matrix((N,len(self.labels)))
+#         self.sessionids=np.zeros(N)
+#         self.count=0
+  
+        
+    def unideal(self,lines):
+        for iline in lines:
+            if len(iline)<2:
+#                 self.sessionNum=self.sessionNum+1
+                continue
+            #print iline.split('\t')
+            words=[]
+            ilabel,iquery,iclick=iline.split('\t')
+            ilabels=ilabel.split(' | ')
+            for i in ilabels:
+                self.labels.update([i[6:],])
+            iwords=iquery.split()
+            self.queries.update([iquery,])
+            words.extend(iwords)
+            if not iclick.strip()=='-':
+                self.clicks.update([iclick.strip(),])
+                words.extend(iclick.strip().split())
+            
+            words=[int(i) for i in words if i!='-']
+                         
+#             for j in xrange(0,3):
+#                 self.ngrams[j].update([ tuple(words[i:i+j]) for i in xrange(len(words)-j)])
+            self.words.update(words)
+            #print self.labels,self.queries,self.clicks,self.words   
+    def unideal2(self,lines):
+        for iline in lines:
+            if len(iline)<2:
+                self.sessionNum=self.sessionNum+1
+                continue
+            #print iline.split('\t')
+            self.sessionids[self.count]=self.sessionNum
+            words=[]
+            ilabel,iquery,iclick=iline.split('\t')
+            qidx=self.queriesd.get(iquery,-1) 
+            cidx=-1           
+            ilabels=ilabel.split(' | ')
+            words.extend(iquery.split())
+            if not iclick.strip()=='-':
+                words.extend(iclick.strip().split())
+                cidx=self.clicksd.get(iclick.strip(),-1)
+            
+            if qidx>=0 and cidx>=0:
+                self.clickgraph[qidx,cidx]=self.clickgraph[qidx,cidx]+1
+            
+            words=[int(i) for i in words]
+            wordset=set(words)
+            #01 feature
+            for iword in wordset:
+                idx=self.wordsd.get(iword,-1)
+                self.trainv[self.count,idx]=1
+            
+            for i in ilabels:
+                labelid=self.labelsd[i[6:]]
+                self.target[self.count,labelid]=1
+            #print iline,labelid,qidx,cidx
+            self.count=self.count+1
+       
+    def uni2vector(self,lines):
+        for iline in lines:
+            if len(iline)<2:
+                self.sessionNum=self.sessionNum+1
+                continue
+            #print iline.split('\t')
+            ilabel,iquery,iclick=iline.split('\t')
+            ilabels=ilabel.split(' | ')
+            for i in ilabels:
+                self.labels.add(i[6:])
+            self.queries.update([iquery,])
+            if not iclick=='-':
+                self.clicks.update([iclick.strip(),])
+                self.words.update(iclick.strip().split())
+            self.words.update(iquery.split())
+            #print self.labels,self.queries,self.clicks,self.words             
+def test1():
+    d='train.txt'
+    baidulogs=querylogs()
+    baidulogs.sample(d,1000000)
+    
+def test():
+    d='train.txt'
+    baidulogs=querylogs()
+#     baidulogs.gen_dict(d, 1000000)  
+#     #wordsdict,
+#     pickle.dump(baidulogs.words,open('baidulogswords','wb'),protocol=2)
+#     #clickdict
+#     pickle.dump(baidulogs.clicks,open('baidulogsclicks','wb'),protocol=2)   
+#     pickle.dump(baidulogs.queries, open('baidulogsqueries','wb'),protocol=2)
+#     print 'pickle down'
+    baidulogs.words=pickle.load(open('baidulogswords','rb'))
+    baidulogs.clicks=pickle.load(open('baidulogsclicks','rb'))
+    baidulogs.queries=pickle.load(open('baidulogsqueries','rb'))
+    baidulogs.labels=set(['UNKNOWN', 'TEST', 'VIDEO', 'OTHER', 'GAME', 'NOVEL', 'TRAVEL', 'LOTTERY', 'ZIPCODE'])
+    #return
+#     baidulogs=pickle.load(open('baidulogs','rb'))
+    print 'load!'
+    
+    baidulogs.collect_traindata(d, 1000000)
+    scipy.io.savemat('baidum.mat',{'trainv':baidulogs.trainv,'target':baidulogs.target,'session':baidulogs.sessionids,'graph':baidulogs.clickgraph})
+    #np.save('target',baidulogs.target)
+    #pickle.dump(baidulogs, open('baidulogs','wb'))
+    
+    print 'pickle down 2'
+    print sum(baidulogs.clicks.values())/len(baidulogs.clicks)
+    print len(baidulogs.words),len(baidulogs.clicks),baidulogs.labels
+    for i in xrange(4):
+        print baidulogs.ngrams[i].most_common()[:20],np.median(baidulogs.ngrams[i].values())    
+
+def testbaidu():
+    baidulogs=pickle.load(open('baidulogsclicks','rb'))
+    print baidulogs.clicks.most_common()[:20],np.median(baidulogs.clicks.values())
+    print len(baidulogs.queries),baidulogs.queries.most_common()[:20],np.median(baidulogs.queries.values())    
+    print len(baidulogs.words),baidulogs.words.most_common()[:20],np.median(baidulogs.words.values())    
+# def fobos():
+#     sol_half = self.sol - self.gamma * self.f2.grad(self.sol)
+#     self.sol= cmp(sol_half,0)*[ ]
+
+if __name__=='__main__':
+    import cProfile as profile
+    profile.run('test1()','1.txt')   
+    
+
+    
