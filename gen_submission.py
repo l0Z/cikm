@@ -1,9 +1,11 @@
 #coding:utf-8
-#coding:utf-8
 '''
 Created on 2014年8月26日
 
 @author: ZS
+
+go to zhaoshi@162.105.71.134:~/cikm$
+run: python gen_submission.py  trialname
 
 '''
 import sys
@@ -36,7 +38,7 @@ def gen_submission(labels,d='testdata.txt'):
 def test():
     if len(sys.argv)<2:
         sys.argv.append('jj')
-    labels=''
+    labels='' ###read your labels
     gen_submission(labels)           
 if __name__=='__main__':
     test()             
