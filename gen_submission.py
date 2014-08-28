@@ -35,10 +35,18 @@ def gen_submission(labels,d='testdata.txt'):
                 iline=iline+' | CLASS='+selflabels[ilabel+2]
             iline=iline+'\r\n'   
             f.write(iline)
+def pre2label(preds):
+    dfs=np.array(preds)
+    dfs=dfs.T
+    labels=np.array([[1 if j>0 else 0 for j in preds[i]] for i in xrange(7)]).T
+    return labels,dfs
+    
 def test():
     if len(sys.argv)<2:
         sys.argv.append('jj')
-    labels='' ###read your labels
+    #labels='' ###read your labels
+    preddirs=['pred'+str(i) for i in xrange(7)]
+    labels=pre2label(open(ipred,'rb').readlines() for ipred in preddirs)
     gen_submission(labels)           
 if __name__=='__main__':
     test()             
